@@ -38,7 +38,7 @@ Windows shortcut:
 Edit `backend/.env` and set:
 ```
 GROQ_API_KEY=gsk-your-key-here
-GROQ_MODEL=llama3-70b-8192
+GROQ_MODEL=llama-3.3-70b-versatile
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 ```
 
@@ -184,7 +184,7 @@ curl -X POST http://localhost:8000/extract-events \
 | Component          | Technology                       |
 |--------------------|----------------------------------|
 | Framework          | FastAPI                          |
-| LLM                | Groq llama3-70b-8192           |
+| LLM                | Groq llama-3.3-70b-versatile  |
 | RAG                | LangChain + FAISS               |
 | Embeddings         | SentenceTransformers            |
 | PDF Extraction     | PyMuPDF                         |
