@@ -3,17 +3,20 @@ Quick test script for JusticeAI backend APIs.
 Run: python test_api.py  (while the server is running on localhost:8000)
 """
 
-import requests
 import json
 import sys
 
+import requests
+
 BASE_URL = "http://localhost:8000"
+VALID_STRENGTHS = {"Weak", "Moderate", "Strong"}
+VALID_DIFFICULTIES = {"Easy", "Moderate", "Hard"}
 
 
 def header(title: str):
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  {title}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 def test_health():
@@ -104,6 +107,7 @@ Rajesh Kumar Sharma
     print("Structured Data:")
     print(json.dumps(data.get("structured_data", {}), indent=2))
     print(f"\nCase Type: {data.get('structured_data', {}).get('case_type', 'N/A')}")
+    print(f"Evidence Strength: {data.get('structured_data', {}).get('evidence_strength', 'N/A')}")
     assert r.status_code == 200
     return data
 
@@ -132,8 +136,20 @@ def test_analyze(upload_data: dict = None):
     }
     r = requests.post(f"{BASE_URL}/analyze", json=payload)
     print(f"Status: {r.status_code}")
-    print(json.dumps(r.json(), indent=2))
+    data = r.json()
+    print(json.dumps(data, indent=2))
     assert r.status_code == 200
+
+    assert data.get("case_strength") in VALID_STRENGTHS
+    assert data.get("case_difficulty") in VALID_DIFFICULTIES
+
+    for document in data.get("document_analysis", []):
+        assert document.get("evidence_strength") in VALID_STRENGTHS
+
+    print(f"\nCase Strength: {data.get('case_strength', 'N/A')}")
+    print(f"Case Difficulty: {data.get('case_difficulty', 'N/A')}")
+    print(f"Confidence Score: {data.get('confidence_score', 'N/A')}")
+    return data
 
 
 def test_extract_events():
