@@ -73,7 +73,7 @@ export default function AnalyzerPage() {
                 onDragOver={(e) => { e.preventDefault(); setIsDragHover(true); }}
                 onDragLeave={() => setIsDragHover(false)}
                 onDrop={handleDrop}
-                className={`w-full max-w-2xl aspect-[2/1] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-colors cursor-pointer
+                className={`w-full max-w-2xl aspect-2/1 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-colors cursor-pointer
                   ${isDragHover ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100/60'}
                   ${file ? 'border-emerald-400 bg-emerald-50/30' : ''}`}
                 onClick={() => document.getElementById('file-upload').click()}
