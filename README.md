@@ -15,15 +15,15 @@
 ```bash
 cd backend
 
-# Repo standard: use backend/.venv only
-py -3.12 -m venv .venv       # Windows
-# python3.12 -m venv .venv   # macOS/Linux
+# Repo standard: use backend/venv only
+py -3.12 -m venv venv        # Windows
+# python3.12 -m venv venv    # macOS/Linux
 
 # Install dependencies
-.\.venv\Scripts\python.exe -m pip install --upgrade pip        # Windows
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt # Windows
-# ./.venv/bin/python -m pip install --upgrade pip              # macOS/Linux
-# ./.venv/bin/python -m pip install -r requirements.txt        # macOS/Linux
+.\venv\Scripts\python.exe -m pip install --upgrade pip        # Windows
+.\venv\Scripts\python.exe -m pip install -r requirements.txt # Windows
+# ./venv/bin/python -m pip install --upgrade pip              # macOS/Linux
+# ./venv/bin/python -m pip install -r requirements.txt        # macOS/Linux
 
 # Configure environment
 # Create backend/.env manually
@@ -45,14 +45,14 @@ EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 Activate it when you want an interactive shell:
 
 ```bash
-.\.venv\Scripts\Activate.ps1   # Windows PowerShell
-# source .venv/bin/activate    # macOS/Linux
+.\venv\Scripts\Activate.ps1   # Windows PowerShell
+# source venv/bin/activate    # macOS/Linux
 ```
 
 ### 3. Run
 
 ```bash
-.\.venv\Scripts\python.exe main.py
+.\venv\Scripts\python.exe main.py
 ```
 
 Server starts at **http://localhost:8000**
@@ -61,7 +61,7 @@ Server starts at **http://localhost:8000**
 
 ```bash
 # With server running in another terminal:
-.\.venv\Scripts\python.exe test_api.py
+.\venv\Scripts\python.exe test_api.py
 ```
 
 ---

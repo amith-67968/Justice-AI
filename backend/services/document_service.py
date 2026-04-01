@@ -16,7 +16,7 @@ from utils.llm import (
 )
 from utils.prompts import EXTRACTION_SYSTEM, EXTRACTION_USER
 from utils.extraction import detect_and_extract, extract_dates_regex, extract_money_regex
-from services.classification_service import classifier
+from services.classification_service_runtime import classifier
 
 
 async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:

@@ -40,10 +40,10 @@ class RAGService:
         with self._lock:
             if self._initialized:
                 return
-            print("⏳  Initializing RAG vector store …")
+            print("Initializing RAG vector store ...")
             self._build_vectorstore()
             self._initialized = True
-            print("✅  RAG vector store ready")
+            print("RAG vector store ready")
 
     def _build_vectorstore(self):
         """Build FAISS index from documents in data/ directory."""
@@ -56,7 +56,7 @@ class RAGService:
         # Check for persisted index
         index_path = os.path.join(settings.VECTOR_STORE_DIR, "index.faiss")
         if os.path.exists(index_path) and self._has_compatible_vectorstore(expected_metadata):
-            print("  Loading persisted FAISS index …")
+            print("  Loading persisted FAISS index ...")
             try:
                 self._vectorstore = FAISS.load_local(
                     settings.VECTOR_STORE_DIR,
@@ -73,7 +73,7 @@ class RAGService:
         # Build from documents
         docs = self._load_documents()
         if not docs:
-            print("  ⚠️  No documents found — using sample legal data")
+            print("  No documents found; using sample legal data")
             docs = self._sample_legal_data()
 
         splitter = RecursiveCharacterTextSplitter(

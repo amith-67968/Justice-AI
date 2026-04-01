@@ -1,8 +1,8 @@
 """
-InLegalBERT-based case type classification service.
+Runtime-safe InLegalBERT classification service.
 
-Uses a zero-shot classification pipeline with InLegalBERT to categorize
-legal text into one of five case types. Model name loaded from .env.
+Uses the same InLegalBERT zero-shot pipeline when available, but it does not
+crash backend startup if the model cannot be downloaded offline.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ import threading
 from config import settings
 
 
-# Case type labels
 CASE_LABELS = [
     "Consumer Dispute",
     "Civil Dispute",
@@ -33,39 +32,38 @@ class CaseClassifier:
 
     def load_model(self):
         """Pre-load the model. Safe to call multiple times."""
-        if self._loaded:
+        if self._loaded or self._pipeline is not None:
             return
+
         with self._lock:
-            if self._loaded:
+            if self._loaded or self._pipeline is not None:
                 return
+
             model_name = settings.INLEGALBERT_MODEL
             print(f"Loading {model_name} for classification ...")
+
             try:
                 from transformers import pipeline
 
                 self._pipeline = pipeline(
                     "zero-shot-classification",
                     model=model_name,
-                    device=-1,  # CPU
+                    device=-1,
                 )
                 self._loaded = True
                 self._load_error = None
                 print(f"{model_name} loaded")
-            except Exception as e:
+            except Exception as exc:
                 self._pipeline = None
-                self._load_error = str(e)
+                self._load_error = str(exc)
                 print(
-                    f"âš ï¸  Could not load {model_name}; continuing without "
-                    f"InLegalBERT classification. Error: {e}"
+                    f"Could not load {model_name}; continuing without "
+                    f"InLegalBERT classification. Error: {exc}"
                 )
-                return
 
     def classify(self, text: str, max_chars: int | None = None) -> str:
-        """
-        Classify text into one of the predefined case types.
-        Returns the label with the highest confidence.
-        """
-        if not self._loaded:
+        """Return the top predicted case label, or 'Others' on fallback."""
+        if not self._loaded and self._pipeline is None:
             self.load_model()
         if self._pipeline is None:
             return "Others"
@@ -79,14 +77,14 @@ class CaseClassifier:
                 candidate_labels=CASE_LABELS,
                 hypothesis_template="This is a legal case about {}.",
             )
-            return result["labels"][0]  # highest scoring label
-        except Exception as e:
-            print(f"⚠️  Classification failed: {e}")
+            return result["labels"][0]
+        except Exception as exc:
+            print(f"Classification failed: {exc}")
             return "Others"
 
     def classify_with_scores(self, text: str, max_chars: int | None = None) -> dict:
-        """Return all labels with confidence scores."""
-        if not self._loaded:
+        """Return all labels with confidence scores, or zeros on fallback."""
+        if not self._loaded and self._pipeline is None:
             self.load_model()
         if self._pipeline is None:
             return {label: 0.0 for label in CASE_LABELS}
@@ -101,10 +99,9 @@ class CaseClassifier:
                 hypothesis_template="This is a legal case about {}.",
             )
             return dict(zip(result["labels"], result["scores"]))
-        except Exception as e:
-            print(f"⚠️  Classification failed: {e}")
+        except Exception as exc:
+            print(f"Classification failed: {exc}")
             return {label: 0.0 for label in CASE_LABELS}
 
 
-# Module-level singleton
 classifier = CaseClassifier()
