@@ -12,6 +12,9 @@ BASE_URL = "http://localhost:8000"
 VALID_STRENGTHS = {"Weak", "Moderate", "Strong"}
 VALID_DIFFICULTIES = {"Easy", "Moderate", "Hard"}
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 def header(title: str):
     print(f"\n{'=' * 60}")
@@ -36,6 +39,18 @@ def test_chat():
     print(f"Status: {r.status_code}")
     print(json.dumps(r.json(), indent=2))
     assert r.status_code == 200
+
+def test_chat_greeting():
+    header("Chat â€” Greeting Guardrail")
+    payload = {"user_query": "hi"}
+    r = requests.post(f"{BASE_URL}/chat", json=payload)
+    print(f"Status: {r.status_code}")
+    data = r.json()
+    print(json.dumps(data, indent=2))
+    assert r.status_code == 200
+    assert "legal issue" in data.get("answer", "").lower()
+    assert data.get("relevant_laws") == []
+    assert data.get("sources") == []
 
 
 def test_upload_text():
@@ -175,6 +190,7 @@ if __name__ == "__main__":
 
     try:
         test_health()
+        test_chat_greeting()
         test_chat()
         upload_data = test_upload_text()
         test_analyze(upload_data)

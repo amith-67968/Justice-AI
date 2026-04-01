@@ -105,3 +105,8 @@ class CaseClassifier:
 
 
 classifier = CaseClassifier()
+
+
+# Compatibility re-export. The canonical implementation now lives in
+# classification_service.py and uses InLegalBERT as an encoder.
+from services.classification_service import CASE_LABELS, CaseClassifier, classifier

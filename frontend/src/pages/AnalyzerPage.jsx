@@ -11,24 +11,12 @@ import {
   Scale,
 } from 'lucide-react';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+import { postFormData, postJson } from '../utils/api';
+
 const ACCEPTED_FILES = '.pdf,.png,.jpg,.jpeg,.bmp,.tiff,.tif,.webp,.txt';
 
 function toArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
-}
-
-async function getErrorMessage(response, fallbackMessage) {
-  try {
-    const payload = await response.json();
-    if (typeof payload?.detail === 'string' && payload.detail.trim()) {
-      return payload.detail;
-    }
-  } catch {
-    // Ignore response parsing errors and use the fallback message.
-  }
-
-  return fallbackMessage;
 }
 
 export default function AnalyzerPage() {
@@ -66,34 +54,24 @@ export default function AnalyzerPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const uploadResponse = await fetch(`${API_BASE_URL}/upload`, {
-        method: 'POST',
-        body: formData,
-      });
+      const uploadData = await postFormData('/upload', formData, 'Document upload failed.');
 
-      if (!uploadResponse.ok) {
-        throw new Error(await getErrorMessage(uploadResponse, 'Document upload failed.'));
+      if (uploadData?.is_legal_document === false) {
+        setError(uploadData.message || 'This file does not appear to be a legal document.');
+        setStatus('idle');
+        return;
       }
 
-      const uploadData = await uploadResponse.json();
-
-      const analyzeResponse = await fetch(`${API_BASE_URL}/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const analysisData = await postJson(
+        '/analyze',
+        {
           structured_data: uploadData.structured_data,
           documents: uploadData.documents,
           raw_text: uploadData.extracted_text,
-        }),
-      });
+        },
+        'Case analysis failed.'
+      );
 
-      if (!analyzeResponse.ok) {
-        throw new Error(await getErrorMessage(analyzeResponse, 'Case analysis failed.'));
-      }
-
-      const analysisData = await analyzeResponse.json();
       setResult({ upload: uploadData, analysis: analysisData });
       setStatus('results');
     } catch (err) {
@@ -163,7 +141,7 @@ export default function AnalyzerPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
-              className="flex flex-col items-center justify-center flex-1 h-full max-h-[500px]"
+              className="flex flex-col items-center justify-center flex-1 h-full max-h-125"
             >
               <div
                 onDragOver={(e) => {
@@ -172,7 +150,7 @@ export default function AnalyzerPage() {
                 }}
                 onDragLeave={() => setIsDragHover(false)}
                 onDrop={handleDrop}
-                className={`w-full max-w-2xl aspect-[2/1] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-colors cursor-pointer
+                className={`w-full max-w-2xl aspect-2/1 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-colors cursor-pointer
                   ${isDragHover ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100/60'}
                   ${file ? 'border-emerald-400 bg-emerald-50/30' : ''}`}
                 onClick={() => document.getElementById('file-upload')?.click()}
@@ -202,7 +180,7 @@ export default function AnalyzerPage() {
                   <div className="text-center pointer-events-none">
                     <UploadCloud size={48} className="text-gray-400 mx-auto mb-4" strokeWidth={1.5} />
                     <p className="text-lg font-medium text-gray-700">Drag and drop file here</p>
-                    <p className="text-gray-500 text-sm mt-2">PDF, TXT, or image files up to 50MB</p>
+                    <p className="text-gray-500 text-sm mt-2">PDF, TXT, or image files up to 20MB</p>
                   </div>
                 )}
               </div>
@@ -225,7 +203,7 @@ export default function AnalyzerPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              className="flex flex-col items-center justify-center flex-1 h-[400px]"
+              className="flex flex-col items-center justify-center flex-1 h-100"
             >
               <Loader2 size={48} className="text-blue-600 animate-spin mb-6" />
               <h3 className="text-xl font-semibold text-gray-900">Processing document...</h3>
@@ -244,7 +222,7 @@ export default function AnalyzerPage() {
                 <div>
                   <h3 className="text-2xl font-bold text-gray-900">Analysis Results</h3>
                   <p className="text-gray-500 mt-1 flex items-center gap-2">
-                    <FileText size={16} /> {file?.name || 'Document'}
+                    <FileText size={16} /> {result?.upload?.filename || file?.name || 'Document'}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

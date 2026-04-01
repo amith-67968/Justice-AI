@@ -19,7 +19,7 @@ from routes.events import router as events_router
 async def lifespan(app: FastAPI):
     """Startup: pre-warm heavy models in background so first request isn't slow."""
     # Import lazily to avoid blocking import-time
-    from services.classification_service_runtime import classifier
+    from services.classification_service import classifier
     from services.rag_service import rag
 
     # Warm up InLegalBERT & vector store in a thread so we don't block the loop

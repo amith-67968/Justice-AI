@@ -3,14 +3,37 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Send, BrainCircuit, User, Mic } from 'lucide-react';
 
+import { postJson } from '../utils/api';
+
+function toArray(value) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function createMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export default function ChatPage() {
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
-  
+  const recognitionRef = useRef(null);
+
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef(null);
+  const [error, setError] = useState('');
+  const [messages, setMessages] = useState([
+    {
+      id: 'welcome',
+      sender: 'ai',
+      text: 'Hello, I am JusticeAI. How can I assist you with your legal questions today?',
+      relevantLaws: [],
+      explanation: '',
+      whyApplicable: '',
+      nextSteps: [],
+      sources: [],
+    },
+  ]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -21,10 +44,10 @@ export default function ChatPage() {
 
       recognitionRef.current.onresult = (event) => {
         let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
           currentTranscript += event.results[i][0].transcript;
         }
-        setInputMessage((prev) => prev ? prev + ' ' + currentTranscript : currentTranscript);
+        setInputMessage((prev) => (prev ? `${prev} ${currentTranscript}` : currentTranscript));
       };
 
       recognitionRef.current.onerror = (event) => {
@@ -38,70 +61,97 @@ export default function ChatPage() {
     }
   }, []);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+
   const toggleListen = (e) => {
     e.preventDefault();
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
-    } else {
-      if (recognitionRef.current) {
-        recognitionRef.current.start();
-        setIsListening(true);
-      } else {
-        alert('Your browser does not support the Web Speech API');
-      }
+      return;
     }
-  };
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: 'ai',
-      text: 'Hello, I am JusticeAI. How can I assist you with your legal questions today?'
-    }
-  ]);
 
-  // Smooth scroll
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+      setIsListening(true);
+      return;
+    }
+
+    alert('Your browser does not support the Web Speech API');
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping]);
-
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e?.preventDefault();
-    if (!inputMessage.trim()) return;
 
-    // Add user message
-    const newMsg = { id: Date.now(), sender: 'user', text: inputMessage.trim() };
-    setMessages((prev) => [...prev, newMsg]);
+    const prompt = inputMessage.trim();
+    if (!prompt || isTyping) {
+      return;
+    }
+
+    const userMessage = {
+      id: createMessageId(),
+      sender: 'user',
+      text: prompt,
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
     setInputMessage('');
+    setError('');
     setIsTyping(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      setIsTyping(false);
+    try {
+      const response = await postJson(
+        '/chat',
+        { user_query: prompt },
+        'Unable to reach the legal assistant right now.'
+      );
+
       setMessages((prev) => [
         ...prev,
         {
-          id: Date.now() + 1,
+          id: createMessageId(),
           sender: 'ai',
-          text: 'This is a simulated AI response. In a real integration, the backend API would return this answer analyzing precedents and legal statutes.'
-        }
+          text: response.answer?.trim() || 'I could not generate an answer for that question.',
+          relevantLaws: toArray(response.relevant_laws),
+          explanation: response.explanation || '',
+          whyApplicable: response.why_applicable || '',
+          nextSteps: toArray(response.next_steps),
+          sources: toArray(response.sources),
+        },
       ]);
-    }, 1500);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Unable to reach the legal assistant right now.';
+
+      setError(message);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: createMessageId(),
+          sender: 'ai',
+          text: 'I am having trouble reaching the legal assistant right now. Please try again in a moment.',
+          relevantLaws: [],
+          explanation: '',
+          whyApplicable: '',
+          nextSteps: ['Try sending the question again in a few seconds.'],
+          sources: [],
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.4 }}
       className="fixed inset-0 w-full h-full bg-white flex flex-col overflow-hidden z-20"
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white z-10">
         <div className="flex items-center gap-4">
           <motion.button
@@ -122,8 +172,17 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 space-y-6">
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-4xl mx-auto rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          >
+            {error}
+          </motion.div>
+        )}
+
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
             <motion.div
@@ -134,28 +193,105 @@ export default function ChatPage() {
                 msg.sender === 'user' ? 'ml-auto flex-row-reverse' : ''
               }`}
             >
-              <div 
+              <div
                 className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-sm ${
-                  msg.sender === 'user' 
-                    ? 'bg-slate-200 text-slate-600' 
+                  msg.sender === 'user'
+                    ? 'bg-slate-200 text-slate-600'
                     : 'bg-blue-600 text-white'
                 }`}
               >
                 {msg.sender === 'user' ? <User size={16} /> : <BrainCircuit size={16} />}
               </div>
-              <div 
+              <div
                 className={`p-4 rounded-2xl text-sm leading-relaxed ${
                   msg.sender === 'user'
                     ? 'bg-slate-900 text-white rounded-br-sm'
                     : 'bg-white text-gray-800 border border-gray-100 shadow-sm rounded-bl-sm'
                 }`}
               >
-                {msg.text}
+                <p className="whitespace-pre-wrap">{msg.text}</p>
+
+                {msg.sender === 'ai' && (
+                  <div className="mt-4 space-y-3">
+                    {msg.relevantLaws?.length > 0 && (
+                      <div className="border-t border-slate-100 pt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Relevant Laws
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {msg.relevantLaws.map((law, index) => (
+                            <span
+                              key={`${msg.id}-law-${index}`}
+                              className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                            >
+                              {law}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {msg.explanation && (
+                      <div className="border-t border-slate-100 pt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Explanation
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">
+                          {msg.explanation}
+                        </p>
+                      </div>
+                    )}
+
+                    {msg.whyApplicable && (
+                      <div className="border-t border-slate-100 pt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Why Applicable
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">
+                          {msg.whyApplicable}
+                        </p>
+                      </div>
+                    )}
+
+                    {msg.nextSteps?.length > 0 && (
+                      <div className="border-t border-slate-100 pt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Next Steps
+                        </p>
+                        <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                          {msg.nextSteps.map((step, index) => (
+                            <li key={`${msg.id}-step-${index}`} className="flex items-start gap-2">
+                              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+                              <span>{step}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {msg.sources?.length > 0 && (
+                      <div className="border-t border-slate-100 pt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Sources
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {msg.sources.map((source, index) => (
+                            <span
+                              key={`${msg.id}-source-${index}`}
+                              className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                            >
+                              {source}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
-          
-          {/* Typing Indicator */}
+
           {isTyping && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -195,7 +331,12 @@ export default function ChatPage() {
             <input
               type="text"
               value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
+              onChange={(e) => {
+                setInputMessage(e.target.value);
+                if (error) {
+                  setError('');
+                }
+              }}
               placeholder="Type your legal question here..."
               className="w-full bg-gray-50 border border-gray-200 rounded-full pl-6 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
             />
@@ -203,8 +344,8 @@ export default function ChatPage() {
               type="button"
               onClick={toggleListen}
               className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full transition-colors ${
-                isListening 
-                  ? 'text-red-500 bg-red-50 hover:bg-red-100 animate-pulse' 
+                isListening
+                  ? 'text-red-500 bg-red-50 hover:bg-red-100 animate-pulse'
                   : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
               }`}
             >

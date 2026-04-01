@@ -6,6 +6,7 @@ Orchestrates: text extraction → LLM structured extraction → InLegalBERT clas
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from config import settings
@@ -16,7 +17,61 @@ from utils.llm import (
 )
 from utils.prompts import EXTRACTION_SYSTEM, EXTRACTION_USER
 from utils.extraction import detect_and_extract, extract_dates_regex, extract_money_regex
-from services.classification_service_runtime import classifier
+from services.classification_service import classifier
+
+
+LEGAL_KEYWORDS = (
+    "accused",
+    "act",
+    "affidavit",
+    "agreement",
+    "appellant",
+    "arbitration",
+    "buyer",
+    "case",
+    "cheque",
+    "clause",
+    "complainant",
+    "complaint",
+    "consumer",
+    "contract",
+    "court",
+    "damages",
+    "decree",
+    "defendant",
+    "dispute",
+    "evidence",
+    "fir",
+    "invoice",
+    "judge",
+    "judgment",
+    "landlord",
+    "law",
+    "lease",
+    "legal notice",
+    "liability",
+    "money recovery",
+    "notice",
+    "order",
+    "payment",
+    "petition",
+    "plaintiff",
+    "police",
+    "receipt",
+    "refund",
+    "respondent",
+    "section",
+    "seller",
+    "stamp",
+    "summons",
+    "tenant",
+    "tribunal",
+    "witness",
+)
+NON_LEGAL_MESSAGE = (
+    "This file does not appear to be a legal document. Please upload a court order, "
+    "notice, complaint, agreement, invoice, receipt, FIR, or another legal record."
+)
 
 
 async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
@@ -35,6 +90,8 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
             "filename": filename,
             "extracted_text": "",
             "structured_data": _empty_extraction(),
+            "documents": [],
+            "is_legal_document": False,
             "message": "Could not extract text from the uploaded file.",
         }
 
@@ -45,6 +102,17 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
     import asyncio
     loop = asyncio.get_running_loop()
     case_type = await loop.run_in_executor(None, classifier.classify, raw_text)
+    case_scores = await loop.run_in_executor(None, classifier.classify_with_scores, raw_text)
+
+    if not _looks_like_legal_document(raw_text, case_type, case_scores):
+        return {
+            "filename": filename,
+            "extracted_text": raw_text,
+            "structured_data": _empty_extraction(),
+            "documents": [],
+            "is_legal_document": False,
+            "message": NON_LEGAL_MESSAGE,
+        }
 
     # Attach case_type to every document entry
     for doc in structured.get("documents", []):
@@ -72,6 +140,7 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
         "extracted_text": raw_text,
         "structured_data": flat,
         "documents": structured.get("documents", []),
+        "is_legal_document": True,
         "message": "Document processed successfully",
     }
 
@@ -130,6 +199,32 @@ def _empty_extraction() -> dict:
         "reason": "",
         "case_type": "",
     }
+
+
+def _looks_like_legal_document(
+    raw_text: str,
+    case_type: str,
+    case_scores: dict[str, float],
+) -> bool:
+    normalized = re.sub(r"\s+", " ", raw_text.lower()).strip()
+    if len(normalized) < 80:
+        return False
+
+    keyword_hits = sum(1 for keyword in LEGAL_KEYWORDS if keyword in normalized)
+    has_dates = bool(extract_dates_regex(raw_text))
+    has_money = bool(extract_money_regex(raw_text))
+    top_score = max(case_scores.values(), default=0.0)
+
+    if keyword_hits >= 2:
+        return True
+
+    if keyword_hits >= 1 and (has_dates or has_money):
+        return True
+
+    if case_type != "Others" and top_score >= 0.8 and keyword_hits >= 1:
+        return True
+
+    return False
 
 
 def _strip_json_fences(text: str) -> str:
