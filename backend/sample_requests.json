@@ -1,0 +1,119 @@
+{
+    "sample_requests": {
+        "chat": {
+            "endpoint": "POST /chat",
+            "request": {
+                "user_query": "My employer has not paid my salary for 3 months. What legal action can I take in India?"
+            },
+            "example_response": {
+                "answer": "Under Indian labour laws, non-payment of salary is a serious violation. You have several legal remedies available...",
+                "relevant_laws": [
+                    "Payment of Wages Act, 1936 — Section 3",
+                    "Industrial Disputes Act, 1947 — Section 33C",
+                    "Indian Penal Code — Section 406 (Criminal Breach of Trust)"
+                ],
+                "explanation": "The Payment of Wages Act mandates timely payment of wages and provides penalties for delays...",
+                "why_applicable": "Since your employer has withheld salary for 3 months without justification, this constitutes a violation of the Payment of Wages Act...",
+                "next_steps": [
+                    "Send a written demand/legal notice to your employer",
+                    "File complaint with the Labour Commissioner",
+                    "If unresolved, file a case in Labour Court under Section 33C of Industrial Disputes Act",
+                    "Consult a labour law advocate for specific guidance"
+                ],
+                "sources": ["labour_laws.txt", "ipc_common_offences.txt"]
+            }
+        },
+        "upload": {
+            "endpoint": "POST /upload",
+            "content_type": "multipart/form-data",
+            "field": "file",
+            "accepted_types": ["PDF", "PNG", "JPG", "JPEG", "BMP", "TIFF", "TXT"],
+            "max_size": "20 MB",
+            "example_response": {
+                "filename": "complaint.pdf",
+                "extracted_text": "CONSUMER COMPLAINT...",
+                "structured_data": {
+                    "document_type": "Consumer Complaint",
+                    "parties": [
+                        {"name": "Rajesh Kumar Sharma", "role": "complainant"},
+                        {"name": "TechGadgets India Pvt. Ltd.", "role": "respondent"}
+                    ],
+                    "dates": ["10/01/2024", "15/03/2024"],
+                    "monetary_values": ["Rs. 85,000/-"],
+                    "key_clauses": ["refund demanded", "defective product"],
+                    "missing_elements": [],
+                    "evidence_strength": "Strong",
+                    "reason": "Complete documentation with payment proof and legal notice",
+                    "case_type": "Consumer Dispute"
+                },
+                "documents": [],
+                "message": "Document processed successfully"
+            }
+        },
+        "analyze": {
+            "endpoint": "POST /analyze",
+            "request": {
+                "structured_data": {
+                    "document_type": "Consumer Complaint",
+                    "parties": [
+                        {"name": "Rajesh Kumar Sharma", "role": "complainant"},
+                        {"name": "TechGadgets India", "role": "respondent"}
+                    ],
+                    "dates": ["10/01/2024"],
+                    "monetary_values": ["Rs. 85,000/-"],
+                    "key_clauses": ["refund demanded", "defective product", "legal notice sent"],
+                    "missing_elements": [],
+                    "evidence_strength": "Strong",
+                    "reason": "Complete documentation",
+                    "case_type": "Consumer Dispute"
+                }
+            },
+            "example_response": {
+                "case_strength": "Strong",
+                "case_complexity": "Low",
+                "confidence_score": 82,
+                "summary": "This consumer dispute appears to have strong supporting evidence. The complainant has documented the purchase, defects, communication attempts, and served legal notice — all of which strengthen the claim.",
+                "strong_points": [
+                    "Payment proof with transaction reference available",
+                    "Multiple communication attempts documented",
+                    "Legal notice served with proof of delivery",
+                    "Clear photographic evidence of defects"
+                ],
+                "weak_points": [
+                    "Independent technical assessment of defects not yet obtained",
+                    "Response from respondent not documented"
+                ],
+                "next_steps": [
+                    "File complaint at District Consumer Forum (court fee minimal)",
+                    "Obtain independent technical report for the laptop defects",
+                    "Gather all communication records as exhibit",
+                    "Consult a consumer rights advocate"
+                ],
+                "document_analysis": [
+                    {
+                        "document_type": "Consumer Complaint",
+                        "evidence_strength": "Strong",
+                        "reason": "Well-drafted complaint with complete facts and supporting documents"
+                    }
+                ],
+                "rule_flags": [
+                    "PAYMENT_PROOF: Payment/receipt documentation found — strengthens claim",
+                    "MULTIPLE_PARTIES: Both parties identified — strengthens record"
+                ]
+            }
+        },
+        "extract_events": {
+            "endpoint": "POST /extract-events",
+            "request": {
+                "text": "The agreement was signed on 10th January 2024. Payment of Rs. 50,000 due on 01/02/2024. Hearing scheduled for 20/05/2024."
+            },
+            "example_response": {
+                "events": [
+                    {"date": "2024-01-10", "description": "Agreement signed between parties"},
+                    {"date": "2024-02-01", "description": "Payment of Rs. 50,000 due"},
+                    {"date": "2024-05-20", "description": "Court hearing scheduled"}
+                ]
+            }
+        }
+    }
+}
