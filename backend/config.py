@@ -11,11 +11,14 @@ load_dotenv()
 
 class Settings:
     # ── LLM ──────────────────────────────────────────────────────────────
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama3-70b-8192")
 
     # ── Embeddings ───────────────────────────────────────────────────────
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    EMBEDDING_MODEL: str = os.getenv(
+        "EMBEDDING_MODEL",
+        "sentence-transformers/all-MiniLM-L6-v2",
+    )
 
     # ── InLegalBERT ──────────────────────────────────────────────────────
     INLEGALBERT_MODEL: str = os.getenv("INLEGALBERT_MODEL", "law-ai/InLegalBERT")
@@ -51,5 +54,5 @@ class Settings:
 settings = Settings()
 
 # Ensure directories exist
-for d in [settings.UPLOAD_DIR, settings.DATA_DIR, settings.VECTOR_STORE_DIR]:
-    os.makedirs(d, exist_ok=True)
+for directory in [settings.UPLOAD_DIR, settings.DATA_DIR, settings.VECTOR_STORE_DIR]:
+    os.makedirs(directory, exist_ok=True)

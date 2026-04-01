@@ -6,8 +6,8 @@
 
 ### 1. Prerequisites
 
-- **Python 3.11+**
-- **OpenAI API key** (GPT-4o-mini recommended for cost/speed)
+- **Python 3.12.x recommended**
+- **Groq API key**
 - **Tesseract OCR** (optional — for image-based document processing)
 
 ### 2. Setup
@@ -15,28 +15,44 @@
 ```bash
 cd backend
 
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+# Repo standard: use backend/.venv only
+py -3.12 -m venv .venv       # Windows
+# python3.12 -m venv .venv   # macOS/Linux
 
 # Install dependencies
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install --upgrade pip        # Windows
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt # Windows
+# ./.venv/bin/python -m pip install --upgrade pip              # macOS/Linux
+# ./.venv/bin/python -m pip install -r requirements.txt        # macOS/Linux
 
 # Configure environment
-copy .env.example .env       # Windows
-# cp .env.example .env       # macOS/Linux
+# Create backend/.env manually
 ```
 
-Edit `.env` and set your OpenAI API key:
+Windows shortcut:
+
+```powershell
+.\setup.ps1
 ```
-OPENAI_API_KEY=sk-your-key-here
+
+Edit `backend/.env` and set:
+```
+GROQ_API_KEY=gsk-your-key-here
+GROQ_MODEL=llama3-70b-8192
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+```
+
+Activate it when you want an interactive shell:
+
+```bash
+.\.venv\Scripts\Activate.ps1   # Windows PowerShell
+# source .venv/bin/activate    # macOS/Linux
 ```
 
 ### 3. Run
 
 ```bash
-python main.py
+.\.venv\Scripts\python.exe main.py
 ```
 
 Server starts at **http://localhost:8000**
@@ -45,7 +61,7 @@ Server starts at **http://localhost:8000**
 
 ```bash
 # With server running in another terminal:
-python test_api.py
+.\.venv\Scripts\python.exe test_api.py
 ```
 
 ---
@@ -72,7 +88,7 @@ python test_api.py
 ```
 User Request
     │
-    ├─► /chat ──────────► RAG (FAISS + OpenAI Embeddings) ──► LLM ──► Structured Response
+    ├─► /chat ──────────► RAG (FAISS + SentenceTransformers) ──► LLM ──► Structured Response
     │
     ├─► /upload ────────► Text Extraction (PyMuPDF / Tesseract)
     │                         │
@@ -103,7 +119,6 @@ backend/
 ├── main.py                     # FastAPI app + lifespan
 ├── config.py                   # Settings from .env
 ├── requirements.txt
-├── .env.example
 ├── test_api.py                 # End-to-end test script
 ├── sample_requests.json        # API reference with examples
 │
@@ -169,9 +184,9 @@ curl -X POST http://localhost:8000/extract-events \
 | Component          | Technology                       |
 |--------------------|----------------------------------|
 | Framework          | FastAPI                          |
-| LLM                | OpenAI (GPT-4o-mini)            |
+| LLM                | Groq llama3-70b-8192           |
 | RAG                | LangChain + FAISS               |
-| Embeddings         | OpenAI text-embedding-3-small   |
+| Embeddings         | SentenceTransformers            |
 | PDF Extraction     | PyMuPDF                         |
 | OCR Fallback       | Tesseract                        |
 | Classification     | InLegalBERT (zero-shot)         |

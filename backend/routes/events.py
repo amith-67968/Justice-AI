@@ -8,7 +8,11 @@ from fastapi import APIRouter, HTTPException
 
 from models.schemas import EventExtractionRequest, EventExtractionResponse, EventItem
 from config import settings
-from utils.llm import get_openai_client
+from utils.llm import (
+    JSON_OBJECT_RESPONSE_FORMAT,
+    extract_response_content,
+    get_groq_client,
+)
 from utils.prompts import EVENT_EXTRACTION_SYSTEM, EVENT_EXTRACTION_USER
 from utils.extraction import extract_dates_regex
 
@@ -40,19 +44,20 @@ async def extract_events(request: EventExtractionRequest):
 
 async def _llm_extract_events(text: str) -> dict:
     """Use LLM to extract structured events from text."""
-    client = get_openai_client()
+    client = get_groq_client()
     truncated = text[:settings.MAX_EXTRACTION_CHARS]
 
     resp = await client.chat.completions.create(
-        model=settings.OPENAI_MODEL,
+        model=settings.GROQ_MODEL,
         messages=[
             {"role": "system", "content": EVENT_EXTRACTION_SYSTEM},
             {"role": "user", "content": EVENT_EXTRACTION_USER.format(text=truncated)},
         ],
         temperature=0.0,
-        max_tokens=1500,
+        max_completion_tokens=1500,
+        response_format=JSON_OBJECT_RESPONSE_FORMAT,
     )
-    content = resp.choices[0].message.content.strip()
+    content = extract_response_content(resp)
     content = _strip_json_fences(content)
     return json.loads(content)
 

@@ -6,23 +6,27 @@ pydantic==2.9.2
 
 # LLM & RAG
 langchain==0.3.0
-langchain-openai==0.2.0
 langchain-community==0.3.0
 langchain-text-splitters==0.3.0
-openai==1.47.0
+groq==0.18.0
 
 # Vector Store
-faiss-cpu==1.8.0
+# 1.8.0 is not available for this Python 3.12 Windows environment.
+faiss-cpu==1.9.0.post1
 
 # Document Processing
-PyMuPDF==1.24.10
+# 1.24.10 has no Windows wheel for Python 3.13; 1.26.0 ships an abi3 wheel.
+PyMuPDF==1.26.0
 Pillow==10.4.0
 pytesseract==0.3.10
 
 # ML / Classification
+# torch==2.4.1 is published for Python 3.8-3.12 on PyPI, so Python 3.12 is the
+# safest runtime for this backend.
 transformers==4.44.2
 torch==2.4.1
 sentencepiece==0.2.0
+sentence-transformers==3.2.1
 
 # Utilities
 python-dateutil==2.9.0

@@ -2,7 +2,7 @@
 RAG-based legal chat service.
 
 Flow: user query → embedding → FAISS vector search → context → LLM → structured response.
-Uses LangChain + FAISS with OpenAI embeddings.
+Uses LangChain + FAISS with SentenceTransformers embeddings and Groq chat completions.
 """
 
 from __future__ import annotations
@@ -14,12 +14,19 @@ from pathlib import Path
 from typing import Any
 
 from config import settings
-from utils.llm import get_openai_client
+from utils.embeddings import SentenceTransformerEmbeddings
+from utils.llm import (
+    JSON_OBJECT_RESPONSE_FORMAT,
+    extract_response_content,
+    get_groq_client,
+)
 from utils.prompts import CHAT_SYSTEM, CHAT_USER
 
 
 class RAGService:
     """Manages the vector store and RAG pipeline."""
+
+    _VECTORSTORE_METADATA_FILE = "embedding_metadata.json"
 
     def __init__(self):
         self._vectorstore = None
@@ -40,25 +47,28 @@ class RAGService:
 
     def _build_vectorstore(self):
         """Build FAISS index from documents in data/ directory."""
-        from langchain_openai import OpenAIEmbeddings
         from langchain_community.vectorstores import FAISS
         from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-        embeddings = OpenAIEmbeddings(
-            openai_api_key=settings.OPENAI_API_KEY,
-            model=settings.EMBEDDING_MODEL,
-        )
+        embeddings = SentenceTransformerEmbeddings(settings.EMBEDDING_MODEL)
+        expected_metadata = self._expected_vectorstore_metadata()
 
         # Check for persisted index
         index_path = os.path.join(settings.VECTOR_STORE_DIR, "index.faiss")
-        if os.path.exists(index_path):
+        if os.path.exists(index_path) and self._has_compatible_vectorstore(expected_metadata):
             print("  Loading persisted FAISS index …")
-            self._vectorstore = FAISS.load_local(
-                settings.VECTOR_STORE_DIR,
-                embeddings,
-                allow_dangerous_deserialization=True,
-            )
-            return
+            try:
+                self._vectorstore = FAISS.load_local(
+                    settings.VECTOR_STORE_DIR,
+                    embeddings,
+                    allow_dangerous_deserialization=True,
+                )
+                return
+            except Exception as exc:
+                # Rebuild once if the on-disk index is stale or corrupted.
+                print(f"  Existing FAISS index could not be loaded ({exc}); rebuilding ...")
+        elif os.path.exists(index_path):
+            print("  Existing FAISS index uses a different embedding model; rebuilding ...")
 
         # Build from documents
         docs = self._load_documents()
@@ -80,7 +90,33 @@ class RAGService:
         self._vectorstore = FAISS.from_documents(chunks, embeddings)
         # Persist for future startups
         self._vectorstore.save_local(settings.VECTOR_STORE_DIR)
+        self._save_vectorstore_metadata(expected_metadata)
         print("  FAISS index saved to disk")
+
+    def _expected_vectorstore_metadata(self) -> dict[str, str]:
+        return {
+            "provider": "sentence-transformers",
+            "model": settings.EMBEDDING_MODEL,
+        }
+
+    def _vectorstore_metadata_path(self) -> Path:
+        return Path(settings.VECTOR_STORE_DIR) / self._VECTORSTORE_METADATA_FILE
+
+    def _has_compatible_vectorstore(self, expected_metadata: dict[str, str]) -> bool:
+        metadata_path = self._vectorstore_metadata_path()
+        if not metadata_path.exists():
+            return False
+
+        try:
+            current_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+
+        return current_metadata == expected_metadata
+
+    def _save_vectorstore_metadata(self, metadata: dict[str, str]):
+        metadata_path = self._vectorstore_metadata_path()
+        metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
     def _load_documents(self) -> list[dict]:
         """Load .txt and .md files from the data/ directory."""
@@ -330,10 +366,10 @@ Legal Aid:
         sources = list({r["source"] for r in results})
 
         # LLM call
-        client = get_openai_client()
+        client = get_groq_client()
         try:
             resp = await client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
+                model=settings.GROQ_MODEL,
                 messages=[
                     {"role": "system", "content": CHAT_SYSTEM},
                     {"role": "user", "content": CHAT_USER.format(
@@ -341,9 +377,10 @@ Legal Aid:
                     )},
                 ],
                 temperature=0.2,
-                max_tokens=2000,
+                max_completion_tokens=2000,
+                response_format=JSON_OBJECT_RESPONSE_FORMAT,
             )
-            content = resp.choices[0].message.content.strip()
+            content = extract_response_content(resp)
             content = _strip_json_fences(content)
             result = json.loads(content)
             # Ensure sources from vector search are included

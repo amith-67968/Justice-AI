@@ -12,7 +12,11 @@ import json
 from typing import Any
 
 from config import settings
-from utils.llm import get_openai_client
+from utils.llm import (
+    JSON_OBJECT_RESPONSE_FORMAT,
+    extract_response_content,
+    get_groq_client,
+)
 from utils.prompts import ANALYSIS_SYSTEM, ANALYSIS_USER
 
 
@@ -144,14 +148,14 @@ async def _llm_analyze(
     case_type: str,
 ) -> dict:
     """Single LLM call for case analysis."""
-    client = get_openai_client()
+    client = get_groq_client()
 
     structured_json = json.dumps({"documents": documents}, indent=2, default=str)
     flags_text = "\n".join(f"• {f}" for f in rule_flags) if rule_flags else "No flags raised."
 
     try:
         resp = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+            model=settings.GROQ_MODEL,
             messages=[
                 {"role": "system", "content": ANALYSIS_SYSTEM},
                 {"role": "user", "content": ANALYSIS_USER.format(
@@ -161,9 +165,10 @@ async def _llm_analyze(
                 )},
             ],
             temperature=0.0,
-            max_tokens=2000,
+            max_completion_tokens=2000,
+            response_format=JSON_OBJECT_RESPONSE_FORMAT,
         )
-        content = resp.choices[0].message.content.strip()
+        content = extract_response_content(resp)
         content = _strip_json_fences(content)
         return json.loads(content)
     except (json.JSONDecodeError, Exception) as e:

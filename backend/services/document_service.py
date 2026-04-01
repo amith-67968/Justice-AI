@@ -9,7 +9,11 @@ import json
 from typing import Any
 
 from config import settings
-from utils.llm import get_openai_client
+from utils.llm import (
+    JSON_OBJECT_RESPONSE_FORMAT,
+    extract_response_content,
+    get_groq_client,
+)
 from utils.prompts import EXTRACTION_SYSTEM, EXTRACTION_USER
 from utils.extraction import detect_and_extract, extract_dates_regex, extract_money_regex
 from services.classification_service import classifier
@@ -74,22 +78,23 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
 
 async def _llm_extract(text: str) -> dict:
     """Single LLM call to extract structured JSON from document text."""
-    client = get_openai_client()
+    client = get_groq_client()
 
     # Truncate very long documents using config limit
     truncated = text[:settings.MAX_EXTRACTION_CHARS]
 
     try:
         resp = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+            model=settings.GROQ_MODEL,
             messages=[
                 {"role": "system", "content": EXTRACTION_SYSTEM},
                 {"role": "user", "content": EXTRACTION_USER.format(text=truncated)},
             ],
             temperature=0.0,
-            max_tokens=2000,
+            max_completion_tokens=2000,
+            response_format=JSON_OBJECT_RESPONSE_FORMAT,
         )
-        content = resp.choices[0].message.content.strip()
+        content = extract_response_content(resp)
         content = _strip_json_fences(content)
         return json.loads(content)
     except (json.JSONDecodeError, Exception) as e:
