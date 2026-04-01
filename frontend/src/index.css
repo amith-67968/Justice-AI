@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "system-ui", "sans-serif";
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+    min-height: 100vh;
+  }
+}
