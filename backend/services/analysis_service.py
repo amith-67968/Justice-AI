@@ -20,6 +20,22 @@ from utils.llm import (
 from utils.prompts import ANALYSIS_SYSTEM, ANALYSIS_USER
 
 
+DIFFICULTY_MAP = {
+    "low": "Easy",
+    "easy": "Easy",
+    "medium": "Moderate",
+    "moderate": "Moderate",
+    "high": "Hard",
+    "hard": "Hard",
+}
+
+STRENGTH_MAP = {
+    "weak": "Weak",
+    "moderate": "Moderate",
+    "strong": "Strong",
+}
+
+
 # ── Rule Engine ─────────────────────────────────────────────────────────────
 
 def apply_rules(structured_data: dict, documents: list[dict] | None = None) -> dict:
@@ -128,6 +144,7 @@ async def analyze_case(
         rule_result["rule_flags"],
         case_type,
     )
+    analysis = _normalize_analysis_output(analysis)
 
     # Merge rule flags into response
     analysis["rule_flags"] = rule_result["rule_flags"]
@@ -179,7 +196,7 @@ async def _llm_analyze(
 def _fallback_analysis() -> dict:
     return {
         "case_strength": "Moderate",
-        "case_complexity": "Medium",
+        "case_difficulty": "Moderate",
         "confidence_score": 50,
         "summary": "Analysis could not be completed. Please review the documents manually.",
         "strong_points": ["Documents were successfully extracted"],
@@ -187,6 +204,41 @@ def _fallback_analysis() -> dict:
         "next_steps": ["Consult a qualified legal professional for detailed analysis"],
         "document_analysis": [],
     }
+
+
+def _normalize_analysis_output(analysis: dict) -> dict:
+    result = dict(analysis)
+
+    raw_difficulty = result.pop("case_complexity", None) or result.get("case_difficulty")
+    result["case_difficulty"] = _normalize_label(
+        raw_difficulty,
+        DIFFICULTY_MAP,
+        default="Moderate",
+    )
+    result["case_strength"] = _normalize_label(
+        result.get("case_strength"),
+        STRENGTH_MAP,
+        default="Moderate",
+    )
+
+    normalized_documents = []
+    for item in result.get("document_analysis", []):
+        document = dict(item)
+        document["evidence_strength"] = _normalize_label(
+            document.get("evidence_strength"),
+            STRENGTH_MAP,
+            default="Moderate",
+        )
+        normalized_documents.append(document)
+    result["document_analysis"] = normalized_documents
+
+    return result
+
+
+def _normalize_label(value: str | None, mapping: dict[str, str], default: str) -> str:
+    if not value:
+        return default
+    return mapping.get(str(value).strip().lower(), default)
 
 
 def _strip_json_fences(text: str) -> str:

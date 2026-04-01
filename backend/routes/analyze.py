@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
 
+from models.schemas import AnalysisResponse
 from services.analysis_service import analyze_case
 
 router = APIRouter()
@@ -18,7 +19,7 @@ class AnalyzeRequest(BaseModel):
     raw_text: Optional[str] = Field(None, description="Original raw text (optional)")
 
 
-@router.post("")
+@router.post("", response_model=AnalysisResponse)
 async def analyze(request: AnalyzeRequest):
     """
     Analyze a case using structured document data.

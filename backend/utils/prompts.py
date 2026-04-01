@@ -62,7 +62,7 @@ CASE TYPE (from classifier): {case_type}
 Return a JSON object with EXACTLY this structure:
 {{
   "case_strength": "<Weak|Moderate|Strong>",
-  "case_complexity": "<Low|Medium|High>",
+  "case_difficulty": "<Easy|Moderate|Hard>",
   "confidence_score": <0-100 integer>,
   "summary": "<2-4 sentence plain-language summary of the case assessment>",
   "strong_points": ["<point 1>", "<point 2>"],
@@ -80,7 +80,7 @@ Return a JSON object with EXACTLY this structure:
 Rules:
 - confidence_score must be an integer between 0 and 100.
 - case_strength must be one of: Weak, Moderate, Strong.
-- case_complexity must be one of: Low, Medium, High.
+- case_difficulty must be one of: Easy, Moderate, Hard.
 - Provide at least 2 strong_points and 2 weak_points (use "None identified" if truly absent).
 - next_steps should be clear, actionable recommendations.
 - DO NOT provide legal verdicts or predict outcomes.

@@ -70,7 +70,7 @@
             },
             "example_response": {
                 "case_strength": "Strong",
-                "case_complexity": "Low",
+                "case_difficulty": "Easy",
                 "confidence_score": 82,
                 "summary": "This consumer dispute appears to have strong supporting evidence. The complainant has documented the purchase, defects, communication attempts, and served legal notice — all of which strengthen the claim.",
                 "strong_points": [

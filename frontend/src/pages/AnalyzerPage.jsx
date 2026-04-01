@@ -163,7 +163,7 @@ export default function AnalyzerPage() {
                 {/* Result Card 2 */}
                 <motion.div custom={1} initial="hidden" animate="visible" variants={cardVariants} className="bg-amber-50 rounded-2xl p-6 border border-amber-100 relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-10"><AlertTriangle size={100} /></div>
-                  <h4 className="text-amber-800 font-semibold mb-2">Case Complexity</h4>
+                  <h4 className="text-amber-800 font-semibold mb-2">Case Difficulty</h4>
                   <p className="text-3xl font-bold text-amber-600">Moderate</p>
                   <p className="text-amber-700/80 text-sm mt-4 leading-relaxed tracking-wide">
                     Multi-jurisdictional elements detected. May require 2-3 expert witnesses to establish comprehensive facts.
