@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-route
 import { AnimatePresence } from 'framer-motion';
 
 // Import newly extracted Pages
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
 import ChatPage from './pages/ChatPage';
 import AnalyzerPage from './pages/AnalyzerPage';
@@ -14,11 +16,18 @@ function AnimatedRoutes() {
     // AnimatePresence is essential for capturing exit transitions on routes
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Dashboard />} />
+        {/* Authentication Routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        
+        {/* Application Routes */}
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/analyze" element={<AnalyzerPage />} />
-        {/* Placeholder specific to feature card 3 */}
-        <Route path="/documents" element={<Navigate to="/" replace />} />
+        <Route path="/documents" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Default Redirect */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </AnimatePresence>
   );
