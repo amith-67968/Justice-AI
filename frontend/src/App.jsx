@@ -6,14 +6,60 @@ import { useAuth } from './hooks/useAuth';
 import AnalyzerPage from './pages/AnalyzerPage';
 import ChatPage from './pages/ChatPage';
 import Dashboard from './pages/Dashboard';
+import DocumentsPage from './pages/DocumentsPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import LoginPage from './pages/LoginPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SignupPage from './pages/SignupPage';
-import Dashboard from './pages/Dashboard';
-import ChatPage from './pages/ChatPage';
-import AnalyzerPage from './pages/AnalyzerPage';
-import DocumentsPage from './pages/DocumentsPage';
+
+function RouteLoader() {
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-50/90 backdrop-blur-sm">
+      <div className="flex flex-col items-center gap-3 text-slate-600">
+        <div className="h-10 w-10 rounded-full border-2 border-slate-200 border-t-slate-900 animate-spin" />
+        <p className="text-sm font-medium">Preparing your workspace...</p>
+      </div>
+    </div>
+  );
+}
+
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <RouteLoader />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+function GuestRoute({ children }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <RouteLoader />;
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
+
+function IndexRedirect() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <RouteLoader />;
+  }
+
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />;
+}
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -21,18 +67,65 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        {/* Authentication Routes */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        
-        {/* Application Routes */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/chat" element={<ChatPage />} />
-        <Route path="/analyze" element={<AnalyzerPage />} />
-        <Route path="/documents" element={<DocumentsPage />} />
-
-        {/* Default Redirect */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/login"
+          element={
+            <GuestRoute>
+              <LoginPage />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/signup"
+          element={
+            <GuestRoute>
+              <SignupPage />
+            </GuestRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <GuestRoute>
+              <ForgotPasswordPage />
+            </GuestRoute>
+          }
+        />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analyze"
+          element={
+            <ProtectedRoute>
+              <AnalyzerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/documents"
+          element={
+            <ProtectedRoute>
+              <DocumentsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/" element={<IndexRedirect />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AnimatePresence>
   );
