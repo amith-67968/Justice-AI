@@ -1,11 +1,12 @@
 import React from 'react';
+
 import AuthShell from '../components/ui/AuthShell';
 import ModernAnimatedAuth from '../components/ui/ModernAnimatedAuth';
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
   return (
     <AuthShell>
-        <ModernAnimatedAuth mode="login" />
+      <ModernAnimatedAuth mode="reset-password" />
     </AuthShell>
   );
 }

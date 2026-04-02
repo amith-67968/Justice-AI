@@ -1,9 +1,14 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
-// Import newly extracted Pages
+import { useAuth } from './hooks/useAuth';
+import AnalyzerPage from './pages/AnalyzerPage';
+import ChatPage from './pages/ChatPage';
+import Dashboard from './pages/Dashboard';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import LoginPage from './pages/LoginPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
 import ChatPage from './pages/ChatPage';
@@ -12,9 +17,8 @@ import DocumentsPage from './pages/DocumentsPage';
 
 function AnimatedRoutes() {
   const location = useLocation();
-  
+
   return (
-    // AnimatePresence is essential for capturing exit transitions on routes
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         {/* Authentication Routes */}
@@ -36,10 +40,7 @@ function AnimatedRoutes() {
 
 export default function App() {
   return (
-    // Root application layout container
     <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-6 sm:p-12 relative overflow-hidden font-sans">
-      
-      {/* Decorative background blurs, persistent across all routes */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-[100px] -z-10 pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-indigo-50/50 rounded-full blur-[120px] -z-10 pointer-events-none" />
 
