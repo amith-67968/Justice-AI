@@ -9,6 +9,8 @@ import {
   AlertTriangle,
   Lightbulb,
   Scale,
+  Paperclip,
+  ArrowUp
 } from 'lucide-react';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
@@ -43,8 +45,10 @@ export default function AnalyzerPage() {
     e.preventDefault();
     setIsDragHover(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFile(e.dataTransfer.files[0]);
+      const selected = e.dataTransfer.files[0];
+      setFile(selected);
       setError('');
+      handleAnalyzeClick(selected);
     }
   };
 
@@ -55,8 +59,9 @@ export default function AnalyzerPage() {
     setResult(null);
   };
 
-  const handleAnalyzeClick = async () => {
-    if (!file) return;
+  const handleAnalyzeClick = async (fileObj) => {
+    const targetFile = fileObj instanceof File ? fileObj : file;
+    if (!targetFile) return;
 
     setStatus('loading');
     setError('');
@@ -64,7 +69,7 @@ export default function AnalyzerPage() {
 
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', targetFile);
 
       const uploadResponse = await fetch(`${API_BASE_URL}/upload`, {
         method: 'POST',
@@ -125,31 +130,34 @@ export default function AnalyzerPage() {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.4 }}
-      className="w-full max-w-5xl h-full min-h-[85vh] flex flex-col items-center pt-8 pb-16"
+      className="w-full min-h-screen bg-[#F8FAFC] relative pb-24"
     >
-      {/* Header */}
-      <div className="w-full flex items-center mb-10">
+      {/* 1. Top Header Section (LEFT ALIGNED) */}
+      <div className="w-full flex items-start justify-start pl-4 pt-4 mb-10 text-left">
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => navigate('/')}
-          className="p-2 text-slate-500 hover:bg-white rounded-full transition-all border border-transparent shadow-sm hover:border-gray-200 hover:shadow"
+          className="p-2 text-slate-500 hover:bg-white rounded-full transition-all border border-transparent shadow-sm hover:border-gray-200 hover:shadow mt-1"
         >
           <ChevronLeft size={24} />
         </motion.button>
-        <div className="ml-4">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Case Analyzer</h1>
-          <p className="text-gray-500 text-sm mt-1">
+        <div className="ml-4 text-left">
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight text-left">Case Analyzer</h1>
+          <p className="text-gray-500 text-sm mt-1 text-left">
             Upload a legal document to score case strength, case difficulty, and document evidence.
           </p>
         </div>
       </div>
 
-      {/* Main Block */}
-      <div className="w-full bg-white rounded-3xl p-8 shadow-xl border border-gray-100 flex-1 flex flex-col relative overflow-hidden">
+      {/* 2. Below that -> Centered Upload Input Section */}
+      <div className="w-full flex flex-col items-center px-6 sm:px-8 md:px-12">
+        <div className="w-full max-w-5xl h-full flex flex-col">
+          {/* Main Block */}
+          <div className={`w-full flex flex-col relative ${status === 'results' ? 'bg-white rounded-3xl p-8 shadow-xl border border-gray-100 overflow-hidden mt-8' : ''}`}>
         {error && (
           <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {error}
@@ -160,62 +168,48 @@ export default function AnalyzerPage() {
           {status === 'idle' && (
             <motion.div
               key="upload"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
-              className="flex flex-col items-center justify-center flex-1 h-full max-h-[500px]"
+              className="flex flex-col items-center justify-center flex-1 w-full min-h-[400px]"
             >
-              <div
+              <div 
+                className="w-full max-w-5xl flex flex-col items-center"
                 onDragOver={(e) => {
                   e.preventDefault();
                   setIsDragHover(true);
                 }}
                 onDragLeave={() => setIsDragHover(false)}
                 onDrop={handleDrop}
-                className={`w-full max-w-2xl aspect-[2/1] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-colors cursor-pointer
-                  ${isDragHover ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100/60'}
-                  ${file ? 'border-emerald-400 bg-emerald-50/30' : ''}`}
-                onClick={() => document.getElementById('file-upload')?.click()}
               >
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept={ACCEPTED_FILES}
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      setFile(e.target.files[0]);
-                      setError('');
-                    }
-                  }}
-                />
-                
-                {file ? (
-                  <div className="text-center animate-fade-in">
-                    <div className="mx-auto w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
-                      <FileText size={32} />
-                    </div>
-                    <p className="font-semibold text-gray-900 text-lg">{file.name}</p>
-                    <p className="text-emerald-600 font-medium text-sm mt-1">Ready for analysis</p>
-                  </div>
-                ) : (
-                  <div className="text-center pointer-events-none">
-                    <UploadCloud size={48} className="text-gray-400 mx-auto mb-4" strokeWidth={1.5} />
-                    <p className="text-lg font-medium text-gray-700">Drag and drop file here</p>
-                    <p className="text-gray-500 text-sm mt-2">PDF, TXT, or image files up to 50MB</p>
-                  </div>
-                )}
+                <div 
+                  className={`w-full bg-white rounded-full border shadow-sm transition-all overflow-hidden flex items-center ${isDragHover ? 'border-blue-500 bg-blue-50/50 shadow-md' : 'border-gray-300 hover:shadow-md hover:border-gray-400'}`}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                >
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept={ACCEPTED_FILES}
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        const selected = e.target.files[0];
+                        setFile(selected);
+                        setError('');
+                        handleAnalyzeClick(selected);
+                      }
+                    }}
+                  />
+                  <input
+                    type="text"
+                    disabled={!!file}
+                    readOnly
+                    placeholder="Upload document / photo"
+                    value={file ? file.name : ""}
+                    className="w-full bg-transparent border-none outline-none px-8 py-6 h-20 text-gray-700 placeholder-gray-400 text-xl cursor-pointer truncate"
+                  />
+                </div>
               </div>
-
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                disabled={!file}
-                onClick={handleAnalyzeClick}
-                className={`mt-10 px-10 py-4 rounded-xl font-semibold text-white transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 
-                  ${file ? 'bg-slate-900 hover:bg-slate-800 hover:shadow-lg focus:ring-slate-900' : 'bg-gray-300 cursor-not-allowed opacity-70'}`}
-              >
-                Start Legal Analysis
-              </motion.button>
             </motion.div>
           )}
 
@@ -377,6 +371,8 @@ export default function AnalyzerPage() {
           )}
         </AnimatePresence>
 
+      </div>
+      </div>
       </div>
     </motion.div>
   );
