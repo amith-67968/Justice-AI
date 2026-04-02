@@ -12,6 +12,7 @@ from config import settings
 from routes.chat import router as chat_router
 from routes.upload import router as upload_router
 from routes.analyze import router as analyze_router
+from routes.documents import router as documents_router
 from routes.events import router as events_router
 
 
@@ -19,11 +20,13 @@ from routes.events import router as events_router
 async def lifespan(app: FastAPI):
     """Startup: pre-warm heavy models in background so first request isn't slow."""
     # Import lazily to avoid blocking import-time
+    from database.supabase_client import get_supabase_client
     from services.classification_service import classifier
     from services.rag_service import rag
 
     # Warm up InLegalBERT & vector store in a thread so we don't block the loop
     loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, get_supabase_client)
     await loop.run_in_executor(None, classifier.load_model)
     await loop.run_in_executor(None, rag.initialize)
     print("Models loaded; server ready")
@@ -50,6 +53,7 @@ app.add_middleware(
 app.include_router(chat_router, prefix="/chat", tags=["Chat"])
 app.include_router(upload_router, prefix="/upload", tags=["Upload"])
 app.include_router(analyze_router, prefix="/analyze", tags=["Analysis"])
+app.include_router(documents_router, prefix="/documents", tags=["Documents"])
 app.include_router(events_router, prefix="/extract-events", tags=["Events"])
 
 

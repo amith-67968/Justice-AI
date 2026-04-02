@@ -5,11 +5,16 @@ Orchestrates: text extraction → LLM structured extraction → InLegalBERT clas
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
 from typing import Any
 
 from config import settings
+from database.queries import DatabaseOperationError, fetch_all_document_records, insert_document_record
+from database.supabase_client import SupabaseConfigurationError
+from models.schemas import StoredDocument
 from utils.llm import (
     JSON_OBJECT_RESPONSE_FORMAT,
     extract_response_content,
@@ -72,6 +77,11 @@ NON_LEGAL_MESSAGE = (
     "This file does not appear to be a legal document. Please upload a court order, "
     "notice, complaint, agreement, invoice, receipt, FIR, or another legal record."
 )
+logger = logging.getLogger(__name__)
+
+
+class DocumentStorageError(RuntimeError):
+    """Raised when document persistence or retrieval fails."""
 
 
 async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
@@ -92,6 +102,7 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
             "structured_data": _empty_extraction(),
             "documents": [],
             "is_legal_document": False,
+            "stored_document": None,
             "message": "Could not extract text from the uploaded file.",
         }
 
@@ -99,7 +110,8 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
     structured = await _llm_extract(raw_text)
 
     # ── Step 3: InLegalBERT classification ─────────────────────────────────
-    import asyncio
+    # Integration point for the existing classifier pipeline:
+    # result = classifier.classify(text)
     loop = asyncio.get_running_loop()
     case_type = await loop.run_in_executor(None, classifier.classify, raw_text)
     case_scores = await loop.run_in_executor(None, classifier.classify_with_scores, raw_text)
@@ -111,6 +123,7 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
             "structured_data": _empty_extraction(),
             "documents": [],
             "is_legal_document": False,
+            "stored_document": None,
             "message": NON_LEGAL_MESSAGE,
         }
 
@@ -134,6 +147,11 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
         "reason": first_doc.get("reason", ""),
         "case_type": case_type,
     }
+    stored_document = await save_classified_document(
+        text=raw_text,
+        case_type=case_type,
+        strength=_normalize_strength(flat["evidence_strength"]),
+    )
 
     return {
         "filename": filename,
@@ -141,11 +159,36 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
         "structured_data": flat,
         "documents": structured.get("documents", []),
         "is_legal_document": True,
+        "stored_document": stored_document.model_dump(mode="json"),
         "message": "Document processed successfully",
     }
 
 
-async def _llm_extract(text: str) -> dict:
+async def save_classified_document(text: str, case_type: str, strength: str) -> StoredDocument:
+    """Persist one classified document row without blocking the event loop."""
+    loop = asyncio.get_running_loop()
+
+    try:
+        row = await loop.run_in_executor(None, insert_document_record, text, case_type, strength)
+        return StoredDocument.model_validate(row)
+    except (DatabaseOperationError, SupabaseConfigurationError) as exc:
+        logger.exception("Failed to persist the classified document to Supabase.")
+        raise DocumentStorageError("Document classification succeeded but saving to Supabase failed.") from exc
+
+
+async def fetch_all_stored_documents() -> list[StoredDocument]:
+    """Fetch all persisted document rows."""
+    loop = asyncio.get_running_loop()
+
+    try:
+        rows = await loop.run_in_executor(None, fetch_all_document_records)
+        return [StoredDocument.model_validate(row) for row in rows]
+    except (DatabaseOperationError, SupabaseConfigurationError) as exc:
+        logger.exception("Failed to fetch stored documents from Supabase.")
+        raise DocumentStorageError("Unable to fetch stored documents from Supabase.") from exc
+
+
+async def _llm_extract(text: str) -> dict[str, Any]:
     """Single LLM call to extract structured JSON from document text."""
     client = get_groq_client()
 
@@ -238,3 +281,10 @@ def _strip_json_fences(text: str) -> str:
             lines = lines[1:]
         text = "\n".join(lines)
     return text.strip()
+
+
+def _normalize_strength(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"weak", "moderate", "strong"}:
+        return normalized
+    return "moderate"

@@ -42,6 +42,10 @@ class Settings:
     PORT: int = int(os.getenv("PORT", "8000"))
     DEBUG: bool = os.getenv("DEBUG", "true").lower() == "true"
 
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "").strip()
+    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    SUPABASE_DOCUMENTS_TABLE: str = os.getenv("SUPABASE_DOCUMENTS_TABLE", "documents").strip()
+
     # ── Tesseract ────────────────────────────────────────────────────────
     TESSERACT_CMD: str | None = os.getenv("TESSERACT_CMD")
 
