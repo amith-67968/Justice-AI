@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,32 @@ from utils.llm import (
     get_groq_client,
 )
 from utils.prompts import CHAT_SYSTEM, CHAT_USER
+
+
+_GREETING_TOKENS = {
+    "afternoon",
+    "evening",
+    "good",
+    "hello",
+    "help",
+    "hey",
+    "hi",
+    "hii",
+    "hiii",
+    "morning",
+    "namaste",
+    "there",
+    "yo",
+}
+_LOW_CONTEXT_PROMPTS = {
+    "can you help",
+    "help",
+    "help me",
+    "i need help",
+    "legal help",
+    "need help",
+    "need legal help",
+}
 
 
 class RAGService:
@@ -355,8 +382,42 @@ Legal Aid:
             for doc, score in results
         ]
 
+    def _normalize_query(self, query: str) -> str:
+        normalized = re.sub(r"[^a-z0-9\s]", " ", query.lower())
+        return " ".join(normalized.split())
+
+    def _should_skip_rag(self, query: str) -> bool:
+        normalized = self._normalize_query(query)
+        if not normalized:
+            return True
+
+        if normalized in _LOW_CONTEXT_PROMPTS:
+            return True
+
+        tokens = normalized.split()
+        return len(tokens) <= 4 and all(token in _GREETING_TOKENS for token in tokens)
+
+    def _greeting_response(self) -> dict[str, Any]:
+        return {
+            "answer": (
+                "Hello. Tell me your legal issue in 1 or 2 sentences and I will help you "
+                "with the relevant laws, explanation, and next steps."
+            ),
+            "relevant_laws": [],
+            "explanation": "",
+            "why_applicable": "",
+            "next_steps": [
+                "Describe the problem, the people involved, and what happened.",
+                "Include important dates, money amounts, notices, or documents if you have them.",
+            ],
+            "sources": [],
+        }
+
     async def chat(self, query: str) -> dict[str, Any]:
         """Full RAG pipeline: search → context → LLM → structured response."""
+        if self._should_skip_rag(query):
+            return self._greeting_response()
+
         # Vector search
         results = self.search(query)
         context = "\n\n---\n\n".join(

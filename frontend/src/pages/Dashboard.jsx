@@ -7,9 +7,7 @@ import {
   Cloud, 
   User, 
   LogOut, 
-  Settings,
-  MoreVertical,
-  ChevronRight
+  Settings
 } from 'lucide-react';
 
 const FeatureCard = ({ icon: Icon, title, description, buttonText, delay, onClick }) => {
@@ -26,7 +24,7 @@ const FeatureCard = ({ icon: Icon, title, description, buttonText, delay, onClic
         <Icon size={32} strokeWidth={1.5} />
       </div>
       <h3 className="text-xl font-semibold text-gray-900 mb-3">{title}</h3>
-      <p className="text-gray-600 mb-8 flex-grow leading-relaxed max-w-[250px]">
+      <p className="text-gray-600 mb-8 grow leading-relaxed max-w-62.5">
         {description}
       </p>
       <motion.button 
@@ -36,39 +34,6 @@ const FeatureCard = ({ icon: Icon, title, description, buttonText, delay, onClic
       >
         {buttonText}
       </motion.button>
-    </motion.div>
-  );
-};
-
-const CaseItem = ({ title, status, date }) => {
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'strong': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'moderate': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'weak': return 'bg-rose-100 text-rose-700 border-rose-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
-
-  return (
-    <motion.div
-      whileHover={{ scale: 1.01, backgroundColor: '#f8fafc' }}
-      className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl shadow-sm transition-colors cursor-pointer group"
-    >
-      <div className="flex-1">
-        <h4 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-          {title}
-        </h4>
-        <p className="text-xs text-gray-500 mt-1">{date}</p>
-      </div>
-      <div className="flex items-center gap-4">
-        <span className={`px-2.5 py-1 text-xs font-semibold rounded-md border ${getStatusColor(status)}`}>
-          {status}
-        </span>
-        <button className="text-gray-400 hover:text-gray-600 p-1">
-          <MoreVertical size={16} />
-        </button>
-      </div>
     </motion.div>
   );
 };
@@ -144,12 +109,6 @@ export default function Dashboard() {
     }
   ];
 
-  const recentCases = [
-    { id: 1, title: "Smith v. TechCorp - Breach of Contract", status: "Strong", date: "Oct 24, 2024" },
-    { id: 2, title: "Estate Planning - Johnson Family", status: "Moderate", date: "Oct 21, 2024" },
-    { id: 3, title: "IP Infringement - Default Widget", status: "Weak", date: "Oct 15, 2024" },
-  ];
-
   /* Route page exit animations are naturally caught by wrapping elements if present,
      but we also apply an initial opacity config here for entering. */
   return (
@@ -190,7 +149,7 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Main Feature Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full mb-20 max-w-[1100px]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full mb-20 max-w-275">
         {features.map((feature, index) => (
           <FeatureCard 
             key={index}
@@ -203,34 +162,6 @@ export default function Dashboard() {
           />
         ))}
       </div>
-
-      {/* Recent Cases Section */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.6 }}
-        className="w-full max-w-3xl pb-10"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Recent Cases
-          </h3>
-          <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors">
-            View all <ChevronRight size={16} />
-          </button>
-        </div>
-        
-        <div className="space-y-3">
-          {recentCases.map((caseItem) => (
-            <CaseItem 
-              key={caseItem.id}
-              title={caseItem.title}
-              status={caseItem.status}
-              date={caseItem.date}
-            />
-          ))}
-        </div>
-      </motion.div>
     </motion.div>
   );
 }

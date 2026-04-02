@@ -5,10 +5,16 @@ Orchestrates: text extraction → LLM structured extraction → InLegalBERT clas
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import re
 from typing import Any
 
 from config import settings
+from database.queries import DatabaseOperationError, fetch_all_document_records, insert_document_record
+from database.supabase_client import SupabaseConfigurationError
+from models.schemas import StoredDocument
 from utils.llm import (
     JSON_OBJECT_RESPONSE_FORMAT,
     extract_response_content,
@@ -16,7 +22,66 @@ from utils.llm import (
 )
 from utils.prompts import EXTRACTION_SYSTEM, EXTRACTION_USER
 from utils.extraction import detect_and_extract, extract_dates_regex, extract_money_regex
-from services.classification_service_runtime import classifier
+from services.classification_service import classifier
+
+
+LEGAL_KEYWORDS = (
+    "accused",
+    "act",
+    "affidavit",
+    "agreement",
+    "appellant",
+    "arbitration",
+    "buyer",
+    "case",
+    "cheque",
+    "clause",
+    "complainant",
+    "complaint",
+    "consumer",
+    "contract",
+    "court",
+    "damages",
+    "decree",
+    "defendant",
+    "dispute",
+    "evidence",
+    "fir",
+    "invoice",
+    "judge",
+    "judgment",
+    "landlord",
+    "law",
+    "lease",
+    "legal notice",
+    "liability",
+    "money recovery",
+    "notice",
+    "order",
+    "payment",
+    "petition",
+    "plaintiff",
+    "police",
+    "receipt",
+    "refund",
+    "respondent",
+    "section",
+    "seller",
+    "stamp",
+    "summons",
+    "tenant",
+    "tribunal",
+    "witness",
+)
+NON_LEGAL_MESSAGE = (
+    "This file does not appear to be a legal document. Please upload a court order, "
+    "notice, complaint, agreement, invoice, receipt, FIR, or another legal record."
+)
+logger = logging.getLogger(__name__)
+
+
+class DocumentStorageError(RuntimeError):
+    """Raised when document persistence or retrieval fails."""
 
 
 async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
@@ -35,6 +100,9 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
             "filename": filename,
             "extracted_text": "",
             "structured_data": _empty_extraction(),
+            "documents": [],
+            "is_legal_document": False,
+            "stored_document": None,
             "message": "Could not extract text from the uploaded file.",
         }
 
@@ -42,9 +110,22 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
     structured = await _llm_extract(raw_text)
 
     # ── Step 3: InLegalBERT classification ─────────────────────────────────
-    import asyncio
+    # Integration point for the existing classifier pipeline:
+    # result = classifier.classify(text)
     loop = asyncio.get_running_loop()
     case_type = await loop.run_in_executor(None, classifier.classify, raw_text)
+    case_scores = await loop.run_in_executor(None, classifier.classify_with_scores, raw_text)
+
+    if not _looks_like_legal_document(raw_text, case_type, case_scores):
+        return {
+            "filename": filename,
+            "extracted_text": raw_text,
+            "structured_data": _empty_extraction(),
+            "documents": [],
+            "is_legal_document": False,
+            "stored_document": None,
+            "message": NON_LEGAL_MESSAGE,
+        }
 
     # Attach case_type to every document entry
     for doc in structured.get("documents", []):
@@ -66,17 +147,48 @@ async def process_document(filename: str, file_bytes: bytes) -> dict[str, Any]:
         "reason": first_doc.get("reason", ""),
         "case_type": case_type,
     }
+    stored_document = await save_classified_document(
+        text=raw_text,
+        case_type=case_type,
+        strength=_normalize_strength(flat["evidence_strength"]),
+    )
 
     return {
         "filename": filename,
         "extracted_text": raw_text,
         "structured_data": flat,
         "documents": structured.get("documents", []),
+        "is_legal_document": True,
+        "stored_document": stored_document.model_dump(mode="json"),
         "message": "Document processed successfully",
     }
 
 
-async def _llm_extract(text: str) -> dict:
+async def save_classified_document(text: str, case_type: str, strength: str) -> StoredDocument:
+    """Persist one classified document row without blocking the event loop."""
+    loop = asyncio.get_running_loop()
+
+    try:
+        row = await loop.run_in_executor(None, insert_document_record, text, case_type, strength)
+        return StoredDocument.model_validate(row)
+    except (DatabaseOperationError, SupabaseConfigurationError) as exc:
+        logger.exception("Failed to persist the classified document to Supabase.")
+        raise DocumentStorageError("Document classification succeeded but saving to Supabase failed.") from exc
+
+
+async def fetch_all_stored_documents() -> list[StoredDocument]:
+    """Fetch all persisted document rows."""
+    loop = asyncio.get_running_loop()
+
+    try:
+        rows = await loop.run_in_executor(None, fetch_all_document_records)
+        return [StoredDocument.model_validate(row) for row in rows]
+    except (DatabaseOperationError, SupabaseConfigurationError) as exc:
+        logger.exception("Failed to fetch stored documents from Supabase.")
+        raise DocumentStorageError("Unable to fetch stored documents from Supabase.") from exc
+
+
+async def _llm_extract(text: str) -> dict[str, Any]:
     """Single LLM call to extract structured JSON from document text."""
     client = get_groq_client()
 
@@ -132,6 +244,32 @@ def _empty_extraction() -> dict:
     }
 
 
+def _looks_like_legal_document(
+    raw_text: str,
+    case_type: str,
+    case_scores: dict[str, float],
+) -> bool:
+    normalized = re.sub(r"\s+", " ", raw_text.lower()).strip()
+    if len(normalized) < 80:
+        return False
+
+    keyword_hits = sum(1 for keyword in LEGAL_KEYWORDS if keyword in normalized)
+    has_dates = bool(extract_dates_regex(raw_text))
+    has_money = bool(extract_money_regex(raw_text))
+    top_score = max(case_scores.values(), default=0.0)
+
+    if keyword_hits >= 2:
+        return True
+
+    if keyword_hits >= 1 and (has_dates or has_money):
+        return True
+
+    if case_type != "Others" and top_score >= 0.8 and keyword_hits >= 1:
+        return True
+
+    return False
+
+
 def _strip_json_fences(text: str) -> str:
     """Remove ```json ... ``` fences from LLM output."""
     text = text.strip()
@@ -143,3 +281,10 @@ def _strip_json_fences(text: str) -> str:
             lines = lines[1:]
         text = "\n".join(lines)
     return text.strip()
+
+
+def _normalize_strength(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"weak", "moderate", "strong"}:
+        return normalized
+    return "moderate"

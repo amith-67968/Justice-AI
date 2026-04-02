@@ -40,4 +40,4 @@ Users can only access their own data
 ## Credentials Needed
 
 SUPABASE_URL=
-SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
