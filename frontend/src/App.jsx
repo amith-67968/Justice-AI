@@ -8,6 +8,7 @@ import SignupPage from './pages/SignupPage';
 import Dashboard from './pages/Dashboard';
 import ChatPage from './pages/ChatPage';
 import AnalyzerPage from './pages/AnalyzerPage';
+import DocumentsPage from './pages/DocumentsPage';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -24,7 +25,7 @@ function AnimatedRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/analyze" element={<AnalyzerPage />} />
-        <Route path="/documents" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/documents" element={<DocumentsPage />} />
 
         {/* Default Redirect */}
         <Route path="/" element={<Navigate to="/login" replace />} />
