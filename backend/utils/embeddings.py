@@ -6,8 +6,14 @@ Replaces hosted embeddings without changing the surrounding RAG flow.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import TYPE_CHECKING, Any
 
 from config import settings
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer as SentenceTransformerType
+else:
+    SentenceTransformerType = Any
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -21,7 +27,7 @@ from langchain_core.embeddings import Embeddings
 
 
 @lru_cache(maxsize=4)
-def _load_model(model_name: str) -> SentenceTransformer:
+def _load_model(model_name: str) -> SentenceTransformerType:
     if SentenceTransformer is None:
         raise RuntimeError(
             "The 'sentence-transformers' package is not installed. "
@@ -37,7 +43,7 @@ class SentenceTransformerEmbeddings(Embeddings):
         self.model_name = model_name or settings.EMBEDDING_MODEL
 
     @property
-    def model(self) -> SentenceTransformer:
+    def model(self) -> SentenceTransformerType:
         return _load_model(self.model_name)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
